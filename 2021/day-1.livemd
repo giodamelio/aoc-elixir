@@ -1,0 +1,55 @@
+# 2021 Day 1
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.6.1"}
+])
+```
+
+## Input
+
+```elixir
+raw_input = Kino.Input.textarea("Problem Input")
+```
+
+## Parse
+
+```elixir
+input =
+  Kino.Input.read(raw_input)
+  |> String.split("\n")
+  |> Enum.map(&String.to_integer/1)
+```
+
+## Part 1
+
+Count the number of times the depth increased
+
+```elixir
+defmodule Part1 do
+  def count_increases(depths) do
+    depths
+    # Group into overlapping chunks of two
+    |> Enum.chunk_every(2, 1, :discard)
+    # Keep only the ones that are increases
+    |> Enum.filter(fn [first, second] ->
+      first < second
+    end)
+    # Count the remaining pairs
+    |> Enum.count()
+  end
+end
+
+Part1.count_increases(input)
+```
+
+## Part 2
+
+Count the the increases in a sliding three wide window of depths
+
+```elixir
+input
+|> Enum.chunk_every(3, 1, :discard)
+|> Enum.map(&Enum.sum/1)
+|> Part1.count_increases()
+```
