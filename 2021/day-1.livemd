@@ -2,8 +2,11 @@
 
 ```elixir
 Mix.install([
-  {:kino, "~> 0.6.1"}
+  {:kino, "~> 0.6.1"},
+  {:kino_vega_lite, "~> 0.1.1"}
 ])
+
+alias VegaLite, as: Vl
 ```
 
 ## Input
@@ -19,6 +22,22 @@ input =
   Kino.Input.read(raw_input)
   |> String.split("\n")
   |> Enum.map(&String.to_integer/1)
+```
+
+Simple graph of the depth over time
+
+```elixir
+{min, max} = Enum.min_max(input)
+
+# Initialize the specification, optionally with some top-level properties
+Vl.new(width: 400)
+# Specify data source for the graphic using one of the data_from_* functions
+|> Vl.data_from_values(depth: input, time: 0..length(input))
+# Pick a visual mark
+|> Vl.mark(:line)
+# Map data fields to visual properties of the mark, in this case point positions
+|> Vl.encode_field(:y, "depth", type: :quantitative, scale: [domain: [min, max], reverse: true])
+|> Vl.encode_field(:x, "time", type: :quantitative)
 ```
 
 ## Part 1
