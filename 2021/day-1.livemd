@@ -15,6 +15,92 @@ alias VegaLite, as: Vl
 raw_input = Kino.Input.textarea("Problem Input")
 ```
 
+```elixir
+defmodule AdventOfCode.InputFetcher do
+  use Kino.JS
+  use Kino.JS.Live
+  # use Kino.SmartCell, name: "Advent of Code Input Fetcher"
+
+  def new() do
+    Kino.JS.Live.new(__MODULE__, %{})
+  end
+
+  @impl true
+  def init(_state, ctx) do
+    {:ok, ctx}
+  end
+
+  @impl true
+  def handle_connect(ctx) do
+    {:ok, nil, ctx}
+  end
+
+  asset "main.js" do
+    """
+    export function init(ctx, data) {
+      ctx.importCSS("main.css");
+
+      ctx.root.innerHTML = `
+        <div class="field">
+          <label for="aoc_session">Session token</label>
+          <input type="text" id="aoc_session" />
+          <a href="javascript:undefined;" id="save_session">Save to localstorage</a> |
+          <a href="javascript:undefined;" id="load_session">Load from localstorage</a>
+        </div>
+
+        <div class="field">
+          <label for="aoc_day">Day</label>
+          <input type="number" id="aoc_day" min="1" max="25" />
+        </div>
+
+        <button id="aoc_fetch">Fetch Input</button>
+      `;
+
+      // Allow easy reference of form elements
+      const input_session = ctx.root.querySelector("#aoc_session");
+
+      // Handle saving the session token to localstorage
+      document.getElementById("save_session").addEventListener("click", function() {
+        if (input_session.value != "") {
+          localStorage.setItem("advent_of_code_session_token", input_session.value);
+        }
+      });
+
+      // Handle loading the session token from localstorage
+      document.getElementById("load_session").addEventListener("click", function() {
+        const token = localStorage.getItem("advent_of_code_session_token");
+        if (token) {
+          input_session.value = token;
+        }
+      });
+    }
+    """
+  end
+
+  asset "main.css" do
+    """
+    .field, .field > label {
+      display: block;
+    }
+
+    .field > a {
+      font-size: 0.8em;
+    }
+
+    input {
+      margin-bottom: 1em;
+    }
+    """
+  end
+end
+
+# Kino.SmartCell.register(AdventOfCode.InputFetcher)
+```
+
+```elixir
+AdventOfCode.InputFetcher.new()
+```
+
 ## Parse
 
 ```elixir
