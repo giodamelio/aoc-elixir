@@ -51,6 +51,7 @@ defmodule AdventOfCode.InputFetcher do
         <div class="field">
           <label for="aoc_day">Day</label>
           <input type="number" id="aoc_day" min="1" max="25" />
+          <a href="javascript:undefined;" id="use_today">Use todays day</a>
         </div>
 
         <button id="aoc_fetch">Fetch Input</button>
@@ -58,6 +59,7 @@ defmodule AdventOfCode.InputFetcher do
 
       // Allow easy reference of form elements
       const input_session = ctx.root.querySelector("#aoc_session");
+      const input_day = ctx.root.querySelector("#aoc_day");
 
       // Handle saving the session token to localstorage
       document.getElementById("save_session").addEventListener("click", function() {
@@ -73,6 +75,12 @@ defmodule AdventOfCode.InputFetcher do
           input_session.value = token;
         }
       });
+
+      // Handle use todays day link
+      document.getElementById("use_today").addEventListener("click", function() {
+        const day = new Date().getDate().toString();
+        input_day.value = day;
+      });
     }
     """
   end
@@ -87,7 +95,7 @@ defmodule AdventOfCode.InputFetcher do
       font-size: 0.8em;
     }
 
-    input {
+    input, button {
       margin-bottom: 1em;
     }
     """
