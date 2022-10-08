@@ -35,6 +35,56 @@ defmodule AdventOfCode.InputFetcher do
     {:ok, nil, ctx}
   end
 
+  @impl true
+  def handle_event("fetch_input", data, ctx) do
+    file_path = get_file_path()
+    IO.puts(file_path)
+
+    case File.read(file_path) do
+      {:ok, _contents} ->
+        :ok
+
+      {:error, :enoent} ->
+        case download_input(data["session"], data["year"], data["day"]) do
+          {:ok, _, _headers, body} ->
+            IO.puts(body)
+            File.write!(file_path, body)
+
+          err ->
+            IO.puts("download error")
+            IO.puts(err)
+            :error
+        end
+
+      _ ->
+        IO.puts("read error")
+        :error
+    end
+
+    {:noreply, ctx}
+  end
+
+  defp get_file_path(extra \\ "input") do
+    dir = Path.dirname(__ENV__.file)
+    file = Path.basename(__ENV__.file, ".livemd#cell")
+    Path.join([dir, "#{file}_#{extra}.txt"])
+  end
+
+  defp download_input(session, year, day) do
+    :inets.start()
+    :ssl.start()
+
+    :httpc.request(
+      :get,
+      {"https://adventofcode.com/#{year}/day/#{day}/input",
+       [
+         {:binary.bin_to_list("Cookie"), "session=#{session}"}
+       ]},
+      [],
+      []
+    )
+  end
+
   asset "main.js" do
     """
     export function init(ctx, data) {
@@ -44,22 +94,27 @@ defmodule AdventOfCode.InputFetcher do
         <div class="field">
           <label for="aoc_session">Session token</label>
           <input type="text" id="aoc_session" />
-          <a href="javascript:undefined;" id="save_session">Save to localstorage</a> |
-          <a href="javascript:undefined;" id="load_session">Load from localstorage</a>
+          <a href="javascript:undefined;" id="save_session">Save to localstorage</a>
+        </div>
+
+        <div class="field">
+          <label for="aoc_year">Year</label>
+          <input type="number" id="aoc_year" min="2015" max="2099" step="1" />
         </div>
 
         <div class="field">
           <label for="aoc_day">Day</label>
           <input type="number" id="aoc_day" min="1" max="25" />
-          <a href="javascript:undefined;" id="use_today">Use todays day</a>
         </div>
 
-        <button id="aoc_fetch">Fetch Input</button>
+        <button id="aoc_fetch">Fetch and Save Input</button>
       `;
 
       // Allow easy reference of form elements
       const input_session = ctx.root.querySelector("#aoc_session");
+      const input_year = ctx.root.querySelector("#aoc_year");
       const input_day = ctx.root.querySelector("#aoc_day");
+      const button_fetch = ctx.root.querySelector("#aoc_fetch");
 
       // Handle saving the session token to localstorage
       document.getElementById("save_session").addEventListener("click", function() {
@@ -68,18 +123,32 @@ defmodule AdventOfCode.InputFetcher do
         }
       });
 
-      // Handle loading the session token from localstorage
-      document.getElementById("load_session").addEventListener("click", function() {
-        const token = localStorage.getItem("advent_of_code_session_token");
-        if (token) {
-          input_session.value = token;
-        }
-      });
+      // Load the session token from localstorage if it exists
+      const token = localStorage.getItem("advent_of_code_session_token");
+      if (token) {
+        input_session.value = token;
+      }
 
-      // Handle use todays day link
-      document.getElementById("use_today").addEventListener("click", function() {
-        const day = new Date().getDate().toString();
-        input_day.value = day;
+      // Set default year
+      const currentYear = new Date().getFullYear();
+      input_year.value = currentYear;
+      input_year.max = currentYear;
+
+      // If it is December, set the default day to the current day,
+      // otherwise, set it to one
+      if (new Date().getMonth() === 11) {
+        input_day.value = new Date().getDate()
+      } else {
+        input_day.value = 1
+      }
+
+      // Trigger the input fetch
+      button_fetch.addEventListener("click", function() {
+        ctx.pushEvent("fetch_input", {
+          session: input_session.value,
+          year: input_year.value,
+          day: input_day.value
+        })
       });
     }
     """
@@ -107,6 +176,27 @@ end
 
 ```elixir
 AdventOfCode.InputFetcher.new()
+```
+
+```elixir
+__ENV__.file
+File.exists?("c:/Users/giodamelio/projects/aoc-elixir/2021/day-1_input.txt")
+```
+
+```elixir
+:inets.start()
+:ssl.start()
+
+:httpc.request(
+  :get,
+  {"https://adventofcode.com/2021/day/1/input",
+   [
+     {:binary.bin_to_list("Cookie"),
+      "session=53616c7465645f5fe18a4916226e2d7a3266cb7bd0f2ef47516824f0bb26fa1675cab1d9ed2d1ecf279b1afedc56fcaca867b85f73cf9ec3ae0b8de4539839af"}
+   ]},
+  [],
+  []
+)
 ```
 
 ## Parse
