@@ -1,0 +1,65 @@
+# 2021 Day 2
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.6.1"},
+  {:kino_vega_lite, "~> 0.1.1"}
+])
+
+alias VegaLite, as: Vl
+```
+
+## Input
+
+```elixir
+raw_input = Kino.Input.textarea("Problem Input")
+```
+
+## Parse
+
+```elixir
+input =
+  Kino.Input.read(raw_input)
+  |> String.trim()
+  |> String.split("\n")
+  |> Enum.map(&String.split(&1, " "))
+  |> Enum.map(&List.to_tuple/1)
+  |> Enum.map(fn {direction, distance} ->
+    {String.to_atom(direction), String.to_integer(distance)}
+  end)
+```
+
+## Part 1
+
+Count the number of times the depth increased
+
+```elixir
+input
+|> Enum.reduce({0, 0}, fn command, {horizontal, depth} ->
+  case command do
+    {:forward, distance} -> {horizontal + distance, depth}
+    {:down, distance} -> {horizontal, depth + distance}
+    {:up, distance} -> {horizontal, depth - distance}
+  end
+end)
+|> Tuple.to_list()
+|> Enum.product()
+```
+
+## Part 2
+
+Count the the increases in a sliding three wide window of depths
+
+```elixir
+input
+|> Enum.reduce({0, 0, 0}, fn command, {horizontal, depth, aim} ->
+  case command do
+    {:forward, distance} -> {horizontal + distance, depth + aim * distance, aim}
+    {:down, distance} -> {horizontal, depth, aim + distance}
+    {:up, distance} -> {horizontal, depth, aim - distance}
+  end
+end)
+|> Tuple.to_list()
+|> Enum.take(2)
+|> Enum.product()
+```
