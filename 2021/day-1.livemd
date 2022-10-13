@@ -3,7 +3,9 @@
 ```elixir
 Mix.install([
   {:kino, "~> 0.6.1"},
-  {:kino_vega_lite, "~> 0.1.1"}
+  {:kino_vega_lite, "~> 0.1.1"},
+  {:kino_db, "~> 0.2.0"},
+  {:postgrex, "~> 0.16.3"}
 ])
 
 alias VegaLite, as: Vl
@@ -27,7 +29,14 @@ defmodule AdventOfCode.InputFetcher do
 
   @impl true
   def init(attrs, ctx) do
-    ctx = assign(ctx, year: attrs["year"] || "", day: attrs["day"])
+    ctx =
+      assign(ctx,
+        year: attrs["year"] || "",
+        day: attrs["day"] || "",
+        input_example: attrs["input_example"] || "",
+        input_real: attrs["input_real"] || ""
+      )
+
     {:ok, ctx}
   end
 
@@ -37,73 +46,47 @@ defmodule AdventOfCode.InputFetcher do
   end
 
   @impl true
-  def handle_event("fetch_input", data, ctx) do
-    file_path = get_file_path(data["year"], data["day"])
+  def handle_event("submit", data, ctx) do
+    IO.inspect(data)
 
-    with {:ok, :doesnt_exist} <- file_doesnt_exist(file_path),
-         {:ok, {_, _headers, body}} <- download_input(data["session"], data["year"], data["day"]),
-         :ok <- File.write(file_path, body) do
-      broadcast_event(ctx, "input_fetch_success", nil)
-    else
-      {:error, :exists} ->
-        broadcast_event(ctx, "input_fetch_success", nil)
+    input_real =
+      download_input(
+        System.fetch_env!("LB_AOC_SESSION_TOKEN"),
+        data["year"],
+        data["day"]
+      )
 
-      error ->
-        broadcast_event(ctx, "error", error)
-    end
+    IO.inspect(input_real)
 
-    {:noreply, assign(ctx, year: data["year"], day: data["day"])}
-  end
+    ctx =
+      assign(
+        ctx,
+        year: data["year"],
+        day: data["day"],
+        input_example: data["example"],
+        input_real: input_real
+      )
 
-  @impl true
-  def handle_event("save_example", data, ctx) do
-    file_path = get_file_path(data["year"], data["day"], "example_input")
-
-    data_with_trailing_newline =
-      case String.at(data["example"], -1) do
-        '\n' -> data["example"]
-        _ -> data["example"] <> "\n"
-      end
-
-    case File.write(file_path, data_with_trailing_newline) do
-      :ok ->
-        :ok
-
-      error ->
-        broadcast_event(ctx, "error", error)
-    end
-
-    {:noreply, assign(ctx, year: data["year"], day: data["day"])}
+    {:noreply, ctx}
   end
 
   @impl true
   def to_attrs(ctx) do
-    IO.inspect(ctx)
-    %{"year" => ctx.assigns["year"], "day" => ctx.assigns["day"]}
+    %{
+      "year" => ctx.assigns.year,
+      "day" => ctx.assigns.day,
+      "input_example" => ctx.assigns.input_example,
+      "input_real" => ctx.assigns.input_real
+    }
   end
 
   @impl true
   def to_source(attrs) do
     quote do
-      current_dir = Path.dirname(__ENV__.file)
-      input = File.read!(Path.join([current_dir, unquote("aoc_#{"haha"}_1_input.txt")]))
-      example_input = File.read!(Path.join([current_dir, "aoc_2021_1_example_input.txt"]))
-      unquote(attrs)
+      raw_input_example = unquote(attrs["input_example"])
       :ok
     end
     |> Kino.SmartCell.quoted_to_string()
-  end
-
-  defp get_file_path(year, day, extra \\ "input") do
-    dir = Path.dirname(__ENV__.file)
-    Path.join([dir, "aoc_#{year}_#{day}_#{extra}.txt"])
-  end
-
-  defp file_doesnt_exist(path) do
-    case File.exists?(path) do
-      true -> {:error, :exists}
-      false -> {:ok, :doesnt_exist}
-    end
   end
 
   defp download_input(session, year, day) do
@@ -127,35 +110,27 @@ defmodule AdventOfCode.InputFetcher do
       ctx.importCSS("main.css");
 
       ctx.root.innerHTML = `
-        <div id="error"></div>
+        <form id="aoc_input">
+          <div id="error"></div>
 
-        <div id="input">
-          <div class="field">
-            <label for="aoc_session">Session token</label>
-            <input type="text" id="aoc_session" />
-            <a href="javascript:undefined;" id="save_session">Save to localstorage</a>
+          <div id="input">
+            <div class="field">
+              <label>Year</label>
+              <input type="number" name="year" min="2015" max="2099" step="1" />
+            </div>
+
+            <div class="field">
+              <label>Day</label>
+              <input type="number" name="day" min="1" max="25" />
+            </div>
+
+            <div class="field">
+              <label>Paste Example Input Here</label>
+              <textarea name="example" rows="10"></textarea>
+            </div>
+
+            <button name="submit">Fetch and Save</button>
           </div>
-
-          <div class="field">
-            <label for="aoc_year">Year</label>
-            <input type="number" id="aoc_year" min="2015" max="2099" step="1" />
-          </div>
-
-          <div class="field">
-            <label for="aoc_day">Day</label>
-            <input type="number" id="aoc_day" min="1" max="25" />
-          </div>
-
-          <button id="aoc_fetch">Fetch and Save Input</button>
-        </div>
-
-        <div id="example" class="hidden">
-          <div class="field">
-            <label for="aoc_example">Paste Example Input Here</label>
-            <textarea id="aoc_example" rows="10"></textarea>
-          </div>
-
-          <button id="aoc_save_example">Save Example</button>
         </div>
 
         <div id="convert_screen" class="hidden">
@@ -163,77 +138,33 @@ defmodule AdventOfCode.InputFetcher do
         </div>
       `;
 
-      // Allow easy reference of form elements
-      const input_session = ctx.root.querySelector("#aoc_session");
-      const input_year = ctx.root.querySelector("#aoc_year");
-      const input_day = ctx.root.querySelector("#aoc_day");
-      const button_fetch = ctx.root.querySelector("#aoc_fetch");
-      const button_save_example = ctx.root.querySelector("#aoc_save_example");
-      const div_error = ctx.root.querySelector("#error");
-      const div_input = ctx.root.querySelector("#input");
-      const div_example = ctx.root.querySelector("#example");
-      const div_convert_screen = ctx.root.querySelector("#convert_screen");
+      // Shortcuts for easy access
+      const form = document.getElementById("aoc_input");
+      const inputs = form.elements;
 
-      // Handle saving the session token to localstorage
-      document.getElementById("save_session").addEventListener("click", function() {
-        if (input_session.value != "") {
-          localStorage.setItem("advent_of_code_session_token", input_session.value);
-        }
-      });
-
-      // Load the session token from localstorage if it exists
-      const token = localStorage.getItem("advent_of_code_session_token");
-      if (token) {
-        input_session.value = token;
-      }
-
-      // If it is December, set the default day to the current 
-      // year and day, otherwise set it to last year and the first
+      // Set the default day and year
+      // If it is December, set it to the current year and day
+      // Otherwise, year to last year and day to 1
       const currentYear = new Date().getFullYear();
-      input_year.max = currentYear;
+      inputs.year.max = currentYear;
       if (new Date().getMonth() === 11) {
-        input_day.value = new Date().getDate()
+        inputs.day.value = new Date().getDate()
         const currentYear = new Date().getFullYear();
-        input_year.value = currentYear;
+        inputs.year.value = currentYear;
       } else {
-        input_day.value = 1;
-        input_year.value = currentYear - 1;
+        inputs.day.value = 1;
+        inputs.year.value = currentYear - 1;
       }
 
-      // Trigger the input fetch
-      button_fetch.addEventListener("click", function() {
-        ctx.pushEvent("fetch_input", {
-          session: input_session.value,
-          year: input_year.value,
-          day: input_day.value
-        })
-      });
-
-      // Display errors
-      ctx.handleEvent("error", function(error) {
-        div_error.innerHTML = "Download Error. See JS Console for details.";
-        console.log(error);
-      });
-
-      // Input fetch success
-      ctx.handleEvent("input_fetch_success", function(_) {
-        // Swap to example saving input
-        div_input.classList.toggle("hidden");
-        div_example.classList.toggle("hidden");
-      });
-
-      // Handle saving example
-      button_save_example.addEventListener("click", function() {
-        ctx.pushEvent("save_example", {
-          example: document.getElementById("aoc_example").value,
-          year: input_year.value,
-          day: input_day.value
+      // Handle form submit
+      inputs.submit.addEventListener("click", function(event) {
+        ctx.pushEvent("submit", {
+          year: inputs.year.value,
+          day: inputs.day.value,
+          example: inputs.example.value,
         });
-
-        div_example.classList.toggle("hidden");
-        div_convert_screen.classList.toggle("hidden");
       });
-    }
+    };
     """
   end
 
@@ -247,7 +178,7 @@ defmodule AdventOfCode.InputFetcher do
       font-size: 0.8em;
     }
 
-    input, button {
+    input, textarea {
       margin-bottom: 1em;
     }
 
@@ -279,18 +210,12 @@ Kino.SmartCell.register(AdventOfCode.InputFetcher)
 <!-- livebook:{"attrs":{},"kind":"Elixir.AdventOfCode.InputFetcher","livebook_object":"smart_cell"} -->
 
 ```elixir
-current_dir = Path.dirname(__ENV__.file)
-input = File.read!(Path.join([current_dir, "aoc_haha_1_input.txt"]))
-example_input = File.read!(Path.join([current_dir, "aoc_2021_1_example_input.txt"]))
-%{"day" => nil, "year" => nil}
+raw_input_example = ""
 :ok
 ```
 
 ```elixir
-current_dir = Path.dirname(__ENV__.file)
-input = File.read!(Path.join([current_dir, "aoc_2021_1_input.txt"]))
-example_input = File.read!(Path.join([current_dir, "aoc_2021_1_example_input.txt"]))
-:ok
+System.fetch_env!("LB_AOC_SESSION_TOKEN")
 ```
 
 ## Parse
