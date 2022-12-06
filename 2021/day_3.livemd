@@ -1,0 +1,118 @@
+# 2021 Day 3
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.6.1"},
+  {:kino_vega_lite, "~> 0.1.1"}
+])
+
+alias VegaLite, as: Vl
+```
+
+## Input
+
+```elixir
+raw_input = Kino.Input.textarea("Problem Input")
+```
+
+## Parse
+
+```elixir
+input =
+  Kino.Input.read(raw_input)
+  |> String.trim()
+  |> String.split("\n")
+  |> Enum.map(&String.split(&1, "", trim: true))
+```
+
+## Helpers
+
+```elixir
+defmodule Helpers do
+  def transpose(matrix) do
+    matrix
+    |> List.zip()
+    |> Enum.map(&Tuple.to_list/1)
+  end
+end
+
+Helpers.transpose([
+  [1, 2, 3],
+  [4, 5, 6]
+])
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def calculate_gamma(input) do
+    input
+    |> Helpers.transpose()
+    |> Enum.map(&Enum.frequencies/1)
+    |> Enum.map(fn %{"0" => zeros, "1" => ones} ->
+      if zeros > ones do
+        "0"
+      else
+        "1"
+      end
+    end)
+    |> Enum.join()
+  end
+
+  def calculate_epsilon("1"), do: "0"
+  def calculate_epsilon("0"), do: "1"
+
+  def calculate_epsilon(gamma) do
+    gamma
+    |> String.split("", trim: true)
+    |> Enum.map(&calculate_epsilon/1)
+    |> Enum.join()
+  end
+end
+
+gamma = Part1.calculate_gamma(input)
+epsilon = Part1.calculate_epsilon(gamma)
+String.to_integer(gamma, 2) * String.to_integer(epsilon, 2)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def find_oxygen(input), do: find_oxygen(input, 0)
+
+  def find_oxygen(input, column) do
+    most_popular = most_popular_in_column(input, column, &</2)
+
+    remaining =
+      for n <- input, Enum.at(n, column) == most_popular do
+        n
+      end
+
+    # IO.inspect(remaining)
+    if length(remaining) == 1 do
+      hd(remaining)
+    else
+      find_oxygen(remaining, column + 1)
+    end
+  end
+
+  def most_popular_in_column(input, column, comparator) do
+    input
+    |> Helpers.transpose()
+    |> Enum.map(&Enum.frequencies/1)
+    |> Enum.map(fn freqs ->
+      if comparator.(Map.get(freqs, "0", 0), Map.get(freqs, "1", 0)) do
+        "0"
+      else
+        "1"
+      end
+    end)
+    |> Enum.at(column)
+  end
+end
+
+Part2.find_oxygen(input)
+Part2.most_popular_in_column([["1", "1"], ["0", "0"]], 0, &</2)
+```
