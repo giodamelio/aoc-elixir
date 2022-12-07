@@ -1,0 +1,72 @@
+# Day 6
+
+```elixir
+Mix.install(
+  [
+    {:advent_of_code_utils, "~> 3.1"}
+  ],
+  config: [
+    advent_of_code_utils: [session: System.fetch_env!("LB_AOC_TOKEN")]
+  ]
+)
+
+Mix.Tasks.Aoc.Get.run(["--year", "2022", "--day", "6"])
+```
+
+## Inputs
+
+```elixir
+example_input = AOC.example_string(2022, 6)
+```
+
+```elixir
+input = AOC.input_string(2022, 6)
+```
+
+## Part 1
+
+```elixir
+example_input
+|> String.split("", trim: true)
+|> Enum.chunk_every(4, 1, :discard)
+|> Enum.take_while(fn chars ->
+  MapSet.size(MapSet.new(chars)) != 4
+end)
+|> Enum.count()
+|> then(&(&1 + 4))
+```
+
+```elixir
+input
+|> String.split("", trim: true)
+|> Enum.chunk_every(4, 1, :discard)
+|> Enum.take_while(fn chars ->
+  MapSet.size(MapSet.new(chars)) != 4
+end)
+|> Enum.count()
+|> then(&(&1 + 4))
+```
+
+## Part 2
+
+```elixir
+example_input
+|> String.split("", trim: true)
+|> Enum.chunk_every(14, 1, :discard)
+|> Enum.take_while(fn chars ->
+  MapSet.size(MapSet.new(chars)) != 14
+end)
+|> Enum.count()
+|> then(&(&1 + 14))
+```
+
+```elixir
+input
+|> String.split("", trim: true)
+|> Enum.chunk_every(14, 1, :discard)
+|> Enum.take_while(fn chars ->
+  MapSet.size(MapSet.new(chars)) != 14
+end)
+|> Enum.count()
+|> then(&(&1 + 14))
+```
