@@ -7,6 +7,14 @@
             "label": "Start Livebook",
             "type": "shell",
             "command": "~/.mix/escripts/livebook server",
+            "options": {
+                "env": {
+                    "LIVEBOOK_HOME": "/workspaces/aoc-elixir",
+                    "LIVEBOOK_PORT": "7777",
+                    "LIVEBOOK_IFRAME_PORT": "7778",
+                    "LIVEBOOK_SHUTDOWN_ENABLED": "true"
+                }
+            },
             "problemMatcher": []
         }
     ]
