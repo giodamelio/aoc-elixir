@@ -1,0 +1,126 @@
+# Day 4
+
+```elixir
+Mix.install(
+  [
+    {:advent_of_code_utils, "~> 3.1"}
+  ],
+  config: [
+    advent_of_code_utils: [session: System.fetch_env!("LB_AOC_TOKEN")]
+  ]
+)
+
+Mix.Tasks.Aoc.Get.run(["--year", "2022", "--day", "4"])
+```
+
+## Inputs
+
+```elixir
+example_input = AOC.example_string(2022, 4)
+```
+
+```elixir
+input = AOC.input_string(2022, 4)
+```
+
+## Parser
+
+```elixir
+defmodule Parser do
+  def parse_line(line) do
+    line
+    |> String.split(~r/[,-]/)
+    |> Enum.map(&String.to_integer/1)
+    |> then(fn [first_start, first_end, second_start, second_end] ->
+      {Range.new(first_start, first_end), Range.new(second_start, second_end)}
+    end)
+  end
+
+  def parse(input) do
+    input
+    |> String.trim()
+    |> String.split("\n")
+    |> Enum.map(&parse_line/1)
+  end
+end
+```
+
+```elixir
+Parser.parse(example_input)
+```
+
+## Cleanup Organizer
+
+```elixir
+defmodule CleanupOrganizer do
+  def fully_contains?(outer_range, inner_range) do
+    outer_range.first <= inner_range.first and outer_range.last >= inner_range.last
+  end
+
+  def fully_contains?({outer_range, inner_range}), do: fully_contains?(outer_range, inner_range)
+end
+```
+
+```elixir
+CleanupOrganizer.fully_contains?(1..10, 1..10)
+```
+
+## Part 1
+
+```elixir
+example_input
+|> Parser.parse()
+# Double the input so both orders of ranges are in it
+# Don't double if the ranges are the same, then it would double count
+|> Enum.flat_map(fn {first_range, second_range} ->
+  if first_range == second_range do
+    [{first_range, second_range}]
+  else
+    [
+      {first_range, second_range},
+      {second_range, first_range}
+    ]
+  end
+end)
+|> Enum.filter(&CleanupOrganizer.fully_contains?/1)
+|> Enum.count()
+```
+
+```elixir
+input
+|> Parser.parse()
+# Double the input so both orders of ranges are in it
+# Don't double if the ranges are the same, then it would double count
+|> Enum.flat_map(fn {first_range, second_range} ->
+  if first_range == second_range do
+    [{first_range, second_range}]
+  else
+    [
+      {first_range, second_range},
+      {second_range, first_range}
+    ]
+  end
+end)
+|> Enum.filter(&CleanupOrganizer.fully_contains?/1)
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+example_input
+|> Parser.parse()
+|> Enum.reject(fn {first, second} ->
+  Range.disjoint?(first, second)
+end)
+|> Enum.count()
+```
+
+```elixir
+input
+|> Parser.parse()
+|> Enum.reject(fn {first, second} ->
+  Range.disjoint?(first, second)
+end)
+|> Enum.count()
+```
