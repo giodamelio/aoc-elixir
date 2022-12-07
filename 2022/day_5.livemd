@@ -1,0 +1,229 @@
+# Day 5
+
+```elixir
+Mix.install(
+  [
+    {:advent_of_code_utils, "~> 3.1"}
+  ],
+  config: [
+    advent_of_code_utils: [session: System.fetch_env!("LB_AOC_TOKEN")]
+  ]
+)
+
+Mix.Tasks.Aoc.Get.run(["--year", "2022", "--day", "5"])
+```
+
+## Inputs
+
+```elixir
+example_input = AOC.example_string(2022, 5)
+```
+
+```elixir
+input = AOC.input_string(2022, 5)
+```
+
+## Parser
+
+```elixir
+defmodule Parser do
+  def convert(input, :pass) do
+    input
+  end
+
+  def convert(_input, :drop) do
+    :to_be_dropped
+  end
+
+  def convert(input, :to_integer) do
+    String.to_integer(input)
+  end
+
+  def convert(input, :to_atom) do
+    String.to_atom(input)
+  end
+
+  def convert(inputs, converters) when is_list(inputs) and is_list(converters) do
+    Enum.zip(inputs, converters)
+    |> Enum.map(fn {input, converter} ->
+      convert(input, converter)
+    end)
+    |> Enum.reject(&(&1 == :to_be_dropped))
+    |> List.to_tuple()
+  end
+
+  def parse_procedure_line(line) do
+    ~r/(move) (\d+) from (\d+) to (\d+)/
+    |> Regex.run(line)
+    |> then(
+      &convert(&1, [
+        :drop,
+        :to_atom,
+        :to_integer,
+        :to_integer,
+        :to_integer
+      ])
+    )
+  end
+
+  def parse(input) do
+    [stacks, procedure] = String.split(input, "\n\n")
+
+    parsed_procedure =
+      procedure
+      |> String.split("\n", trim: true)
+      |> Enum.map(&parse_procedure_line/1)
+
+    parsed_stacks =
+      stacks
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+      # Transpose
+      |> Enum.zip_with(& &1)
+      |> Enum.map(&Enum.reverse/1)
+      |> Enum.reject(&(hd(&1) in ["", " "]))
+      |> Enum.reduce(%{}, fn stack, acc ->
+        stack_number =
+          stack
+          |> hd()
+          |> String.to_integer()
+
+        stack_items =
+          stack
+          |> tl()
+          |> Enum.reject(&(&1 == " "))
+          |> Enum.reverse()
+
+        Map.put(acc, stack_number, stack_items)
+      end)
+
+    {parsed_stacks, parsed_procedure}
+  end
+end
+```
+
+```elixir
+Parser.parse(example_input)
+```
+
+## Crate Movers
+
+```elixir
+defmodule CrateMover9000 do
+  def move(supplies, 1, from, to) do
+    crate =
+      supplies
+      |> Map.get(from)
+      |> hd()
+
+    supplies
+    # Remove from stack
+    |> Map.update!(from, &tl/1)
+    # Add to another stack
+    |> Map.update!(to, &[crate | &1])
+  end
+
+  def move(supplies, quantity, from, to) do
+    for _i <- 1..quantity, reduce: supplies do
+      acc -> move(acc, 1, from, to)
+    end
+  end
+end
+```
+
+```elixir
+CrateMover9000.move(%{1 => ["A"], 2 => []}, 1, 1, 2)
+```
+
+```elixir
+CrateMover9000.move(%{1 => ["A", "B", "C"], 2 => []}, 3, 1, 2)
+```
+
+```elixir
+defmodule CrateMover9001 do
+  def move(supplies, quantity, from, to) do
+    crates =
+      supplies
+      |> Map.get(from)
+      |> Enum.take(quantity)
+
+    supplies
+    # Remove from stack
+    |> Map.update!(from, &Enum.drop(&1, quantity))
+    # Add to another stack
+    |> Map.update!(to, &(crates ++ &1))
+  end
+end
+```
+
+```elixir
+CrateMover9001.move(%{1 => ["A", "B", "C"], 2 => []}, 3, 1, 2)
+```
+
+```elixir
+CrateMover9001.move(%{1 => ["A", "B", "C"], 2 => ["Z"]}, 3, 1, 2)
+```
+
+## Part 1
+
+```elixir
+{supplies, procedure} = Parser.parse(example_input)
+
+procedure
+# Do the actual moving
+|> Enum.reduce(supplies, fn {:move, quantity, from, to}, acc ->
+  CrateMover9000.move(acc, quantity, from, to)
+end)
+# Get the top item from each stack
+|> Map.to_list()
+|> Enum.map(&elem(&1, 1))
+|> Enum.flat_map(&Enum.take(&1, 1))
+|> Enum.join()
+```
+
+```elixir
+{supplies, procedure} = Parser.parse(input)
+
+procedure
+# Do the actual moving
+|> Enum.reduce(supplies, fn {:move, quantity, from, to}, acc ->
+  CrateMover9000.move(acc, quantity, from, to)
+end)
+# Get the top item from each stack
+|> Map.to_list()
+|> Enum.map(&elem(&1, 1))
+|> Enum.flat_map(&Enum.take(&1, 1))
+|> Enum.join()
+```
+
+## Part 2
+
+```elixir
+{supplies, procedure} = Parser.parse(example_input)
+
+procedure
+# Do the actual moving
+|> Enum.reduce(supplies, fn {:move, quantity, from, to}, acc ->
+  CrateMover9001.move(acc, quantity, from, to)
+end)
+# Get the top item from each stack
+|> Map.to_list()
+|> Enum.map(&elem(&1, 1))
+|> Enum.flat_map(&Enum.take(&1, 1))
+|> Enum.join()
+```
+
+```elixir
+{supplies, procedure} = Parser.parse(input)
+
+procedure
+# Do the actual moving
+|> Enum.reduce(supplies, fn {:move, quantity, from, to}, acc ->
+  CrateMover9001.move(acc, quantity, from, to)
+end)
+# Get the top item from each stack
+|> Map.to_list()
+|> Enum.map(&elem(&1, 1))
+|> Enum.flat_map(&Enum.take(&1, 1))
+|> Enum.join()
+```
