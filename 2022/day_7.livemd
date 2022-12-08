@@ -1,0 +1,169 @@
+# Day 7
+
+```elixir
+Mix.install(
+  [
+    {:advent_of_code_utils, "~> 3.1"}
+  ],
+  config: [
+    advent_of_code_utils: [session: System.fetch_env!("LB_AOC_TOKEN")]
+  ]
+)
+
+Mix.Tasks.Aoc.Get.run(["--year", "2022", "--day", "7"])
+```
+
+## Inputs
+
+```elixir
+# Override the example
+example_input =
+  "$ cd /\n$ ls\ndir a\n14848514 b.txt\n8504156 c.dat\ndir d\n$ cd a\n$ ls\ndir e\n29116 f\n2557 g\n62596 h.lst\n$ cd e\n$ ls\n584 i\n$ cd ..\n$ cd ..\n$ cd d\n$ ls\n4060174 j\n8033020 d.log\n5626152 d.ext\n7214296 k"
+```
+
+```elixir
+input = AOC.input_string(2022, 7)
+```
+
+## Parser
+
+```elixir
+defmodule Parser do
+  def parse_ls_output_item("dir " <> name) do
+    %{
+      type: :dir,
+      name: name
+    }
+  end
+
+  def parse_ls_output_item(file) do
+    [size, name] = String.split(file, " ")
+
+    %{
+      type: :file,
+      name: name,
+      size: String.to_integer(size)
+    }
+  end
+
+  def parse(input) do
+    input
+    |> String.split("$ ", trim: true)
+    |> Enum.map(fn raw_cmd ->
+      %{
+        :cmd =>
+          raw_cmd
+          |> String.graphemes()
+          |> Enum.take_while(&(&1 not in [" ", "\n"]))
+          |> Enum.join()
+          |> String.to_atom(),
+        :args =>
+          raw_cmd
+          |> String.split("\n", trim: true)
+          |> hd()
+          |> String.split(" ")
+          |> tl(),
+        :output =>
+          raw_cmd
+          |> String.split("\n", trim: true)
+          |> tl()
+          |> Enum.map(&parse_ls_output_item/1)
+      }
+    end)
+  end
+end
+```
+
+```elixir
+Parser.parse(example_input)
+```
+
+## Filesystem
+
+```elixir
+defmodule Filesystem do
+  def new(commands) do
+    build(
+      commands,
+      %{
+        fs: %{},
+        current_path: []
+      }
+    )
+  end
+
+  def build([], state), do: state.fs
+
+  def build([command | remaining_commands], state) do
+    build(remaining_commands, command(command.cmd, command, state))
+  end
+
+  def command(:cd, command, state) do
+    new_current_path = hd(command.args)
+
+    if new_current_path == ".." do
+      # If the cd arg is `..`, just pop the last directory off current path
+      {new_path, _last_element} = Enum.split(state.current_path, -1)
+
+      state
+      |> Map.put(:current_path, new_path)
+    else
+      # If the cd arg is a new directory, add it to the current path
+      # and add a map for it in the fs
+      new_path = state.current_path ++ [new_current_path]
+
+      state
+      |> Map.put(:current_path, new_path)
+      |> put_in([:fs] ++ new_path, %{type: :dir})
+    end
+  end
+
+  def command(:ls, command, state) do
+    new_fs =
+      for output <- command.output, output.type == :file, reduce: state.fs do
+        acc ->
+          put_in(
+            acc,
+            state.current_path ++ [output.name],
+            %{type: :file, size: output.size, name: output.name}
+          )
+      end
+
+    state
+    |> Map.put(:fs, new_fs)
+  end
+
+  def calculate_directory_sizes(fs) do
+    fs
+  end
+end
+
+example_input
+|> Parser.parse()
+|> Filesystem.new()
+|> Filesystem.calculate_directory_sizes()
+```
+
+## Part 1
+
+```elixir
+example_input
+|> Parser.parse()
+|> Filesystem.new()
+```
+
+```elixir
+input
+|> Parser.parse()
+|> Filesystem.new()
+```
+
+## Part 2
+
+```elixir
+example_input
+```
+
+```elixir
+input
+```
