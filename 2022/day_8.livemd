@@ -1,0 +1,177 @@
+# Day 8
+
+```elixir
+Mix.install(
+  [
+    {:advent_of_code_utils, "~> 3.1"}
+  ],
+  config: [
+    advent_of_code_utils: [session: System.fetch_env!("LB_AOC_TOKEN")]
+  ]
+)
+
+Mix.Tasks.Aoc.Get.run(["--year", "2022", "--day", "8"])
+```
+
+## Inputs
+
+```elixir
+example_input = AOC.example_string(2022, 8)
+```
+
+```elixir
+input = AOC.input_string(2022, 8)
+```
+
+## Parser
+
+```elixir
+defmodule Parser do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, "", trim: true))
+    |> Enum.map(fn row ->
+      Enum.map(row, &String.to_integer/1)
+    end)
+  end
+end
+```
+
+```elixir
+Parser.parse(example_input)
+```
+
+## TreeGrid
+
+```elixir
+defmodule TreeGrid do
+  def transpose(matrix) do
+    matrix
+    |> List.zip()
+    |> Enum.map(&Tuple.to_list/1)
+  end
+
+  def visible_from_outside?(grid, x, y) do
+    visible_along_x_axis?(grid, x, y) or visible_along_y_axis?(grid, x, y)
+  end
+
+  def visible_along_x_axis?(grid, x, y) do
+    grid_width = length(hd(grid))
+
+    if x <= 0 or x >= grid_width - 1 do
+      # It is automatically visible if it is on an edge
+      true
+    else
+      # Check trees to the left and right of the tree
+      {left_of, [self | right_of]} =
+        grid
+        |> Enum.at(y)
+        |> Enum.split(x)
+
+      Enum.max(left_of) < self or Enum.max(right_of) < self
+    end
+  end
+
+  def visible_along_y_axis?(grid, x, y) do
+    visible_along_x_axis?(transpose(grid), y, x)
+  end
+
+  def scenic_score(grid, x, y) do
+    scenic_score_x(grid, x, y) * scenic_score_y(grid, x, y)
+  end
+
+  def scenic_score_x(grid, x, y) do
+    # Get the trees to the left and right of the tree
+    {left_of, [self | right_of]} =
+      grid
+      |> Enum.at(y)
+      |> Enum.split(x)
+
+    left_view_length =
+      left_of
+      |> Enum.reverse()
+      |> Enum.find_index(&(&1 >= self))
+      |> then(fn len ->
+        if len == nil do
+          length(left_of)
+        else
+          len
+        end
+      end)
+
+    left_view = Enum.take(left_of, left_view_length + 1)
+
+    right_view_length =
+      right_of
+      |> Enum.find_index(&(&1 >= self))
+      |> then(fn len ->
+        if len == nil do
+          length(right_of)
+        else
+          len
+        end
+      end)
+
+    right_view = Enum.take(right_of, right_view_length + 1)
+
+    length(left_view) * length(right_view)
+  end
+
+  def scenic_score_y(grid, x, y) do
+    scenic_score_x(transpose(grid), y, x)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+grid = Parser.parse(example_input)
+width = length(hd(grid))
+height = length(grid)
+
+for x <- 0..(width - 1),
+    y <- 0..(height - 1),
+    TreeGrid.visible_from_outside?(grid, x, y),
+    reduce: 0 do
+  acc -> acc + 1
+end
+```
+
+```elixir
+grid = Parser.parse(input)
+width = length(hd(grid))
+height = length(grid)
+
+for x <- 0..(width - 1),
+    y <- 0..(height - 1),
+    TreeGrid.visible_from_outside?(grid, x, y),
+    reduce: 0 do
+  acc -> acc + 1
+end
+```
+
+## Part 2
+
+```elixir
+grid = Parser.parse(example_input)
+width = length(hd(grid))
+height = length(grid)
+
+for x <- 0..(width - 1), y <- 0..(height - 1) do
+  TreeGrid.scenic_score(grid, x, y)
+end
+|> Enum.max()
+```
+
+```elixir
+grid = Parser.parse(input)
+width = length(hd(grid))
+height = length(grid)
+
+for x <- 0..(width - 1), y <- 0..(height - 1) do
+  TreeGrid.scenic_score(grid, x, y)
+end
+|> Enum.max()
+```
