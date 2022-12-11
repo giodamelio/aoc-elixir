@@ -185,9 +185,17 @@ defmodule SVGDraw do
       |> Enum.reverse()
       |> Enum.join("\n")
 
+    # Global styles
+    global_style =
+      svg.options
+      |> Keyword.get(:global_style, %{})
+      |> state_to_attributes()
+
     ~s(
     <svg width="#{svg.width}" height="#{svg.height}" viewBox="0 0 #{svg.width} #{svg.height}" xmlns="http://www.w3.org/2000/svg">
-      #{shapes}
+      <g #{global_style} >  
+        #{shapes}
+      </g>
     </svg>
     ) |> String.trim()
   end
@@ -197,17 +205,20 @@ defmodule SVGDraw do
   end
 
   defp state_to_attributes(%{} = state) do
-    state
-    |> Map.to_list()
-    |> Enum.map(fn {key, value} ->
-      key =
-        key
-        |> Atom.to_string()
-        |> String.replace("_", "-")
+    style =
+      state
+      |> Map.to_list()
+      |> Enum.map(fn {key, value} ->
+        key =
+          key
+          |> Atom.to_string()
+          |> String.replace("_", "-")
 
-      ~s(#{key}="#{value}")
-    end)
-    |> Enum.join(" ")
+        ~s(#{key}:#{value})
+      end)
+      |> Enum.join(";")
+
+    ~s(style="#{style}")
   end
 end
 ```
@@ -224,6 +235,9 @@ SVGDraw.new(200, 200)
 |> set_stroke("black")
 |> set_stroke_width("2")
 |> line(10, 10, 100, 100)
+|> set_fill("white")
+|> set_stroke_width(4)
+|> square(10, 100, 25)
 |> render()
 |> then(&Kino.Image.new(&1, :svg))
 ```
@@ -298,46 +312,57 @@ defmodule RopeGrid do
 
     width = hx + 3
     height = hy + 3
+
     border_width = 1
-    #            Boxes                 Grid                      Border
-    svg_width = width * box_size + width * border_width + border_width
-    svg_height = height * box_size + height * border_width + border_width
+    svg_width = width * box_size + border_width * 2
+    svg_height = height * box_size + border_width * 2
 
-    svg = SVGDraw.new(svg_width, svg_height)
-
-    # Draw the vertical lines
     svg =
-      for x <- Range.new(0, width), reduce: svg do
-        svg ->
-          svg
-          |> SVGDraw.set_stroke_width(border_width)
-          |> SVGDraw.line(
-            x * (box_size + border_width),
-            0,
-            x * (box_size + border_width),
-            svg.height
-          )
-      end
+      SVGDraw.new(
+        svg_width,
+        svg_height,
+        global_style: %{
+          transform: "scaleY(-1)",
+          transform_origin: "center"
+        }
+      )
 
-    # Draw the horizontal lines
-    svg =
-      for y <- Range.new(0, height), reduce: svg do
-        svg ->
-          svg
-          |> SVGDraw.set_stroke_width(border_width)
-          |> SVGDraw.line(
-            0,
-            y * (box_size + border_width),
-            svg.width,
-            y * (box_size + border_width)
-          )
-      end
-
+    # Draw one big box around the outside
     svg =
       svg
-      # Draw the start
-      |> SVGDraw.set_color("blue")
-      |> SVGDraw.square(border_width, svg_height - box_size - border_width, box_size)
+      |> SVGDraw.set_stroke_width(border_width)
+      |> SVGDraw.set_stroke("black")
+      |> SVGDraw.set_fill("white")
+      |> SVGDraw.rectangle(0, 0, svg_width, svg_height)
+
+    # Draw boxes
+    svg =
+      for x <- Range.new(0, width), y <- Range.new(0, height), reduce: svg do
+        svg ->
+          svg
+          |> SVGDraw.set_stroke_width(border_width)
+          |> SVGDraw.set_stroke("black")
+          |> then(fn svg ->
+            cond do
+              {x, y} == {0, 0} ->
+                SVGDraw.set_fill(svg, "blue")
+
+              {x, y} == {hx, hy} ->
+                SVGDraw.set_fill(svg, "green")
+
+              {x, y} == {tx, ty} ->
+                SVGDraw.set_fill(svg, "red")
+
+              true ->
+                SVGDraw.set_fill(svg, "white")
+            end
+          end)
+          |> SVGDraw.square(
+            x * box_size + border_width,
+            y * box_size + border_width,
+            box_size
+          )
+      end
 
     Kino.Layout.grid([
       Kino.Markdown.new(text_location),
