@@ -1,9 +1,9 @@
-defmodule AocElixir.MixProject do
+defmodule AOCUtils.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :aoc_elixir,
+      app: :aoc_utils,
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
